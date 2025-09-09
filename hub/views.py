@@ -2,6 +2,8 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics
+from django.db import transaction
+
 import requests
 
 from .serializers import FullCDSerializer, RequestCDSerializer
@@ -93,55 +95,66 @@ class CdRequestAPIView(APIView):
             
             print("IP FORMATADO", formated_ip)
             print("SELLER: ", seller)
-            suplier = get_object_or_404(CD, name=seller['cd'])
-            buyer = get_object_or_404(CD, ip=formated_ip)
 
-            target_url = f"http://{suplier.ip}/cd/v1/product/sell/"
-            origin_url = f"http://{buyer.ip}/cd/v1/product/buy/"
-            print(f"SUPLIER: {suplier.name}-{suplier.ip}\nBUYER: {buyer.name}-{buyer.ip}")
+            transaction_price = seller['price'] * quantity
+
             transaction_data = {
                 "product": product,
                 "quantity": quantity
             }
 
             try:
-                target_response = requests.post(
-                    url=target_url,
-                    json=transaction_data,
-                    timeout=5
-                )
-                target_response.raise_for_status()
+                with transaction.atomic():
+                    suplier = CD.objects.select_for_update().get(name=seller['cd'])
+                    buyer = CD.objects.select_for_update().get(ip=formated_ip)
 
-                origin_response = requests.post(
-                    url=origin_url,
-                    json=transaction_data,
-                    timeout=5
-                )
-                origin_response.raise_for_status()
+                    target_url = f"http://{suplier.ip}/cd/v1/product/sell/"
+                    origin_url = f"http://{buyer.ip}/cd/v1/product/buy/"
+                    
+                    print(f"SUPLIER: {suplier.name}-{suplier.ip}\nBUYER: {buyer.name}-{buyer.ip}")
+
+                    target_response = requests.post(
+                        url=target_url,
+                        json=transaction_data,
+                        timeout=5
+                    )
+                    target_response.raise_for_status()
+
+                    origin_response = requests.post(
+                        url=origin_url,
+                        json=transaction_data,
+                        timeout=5
+                    )
+                    origin_response.raise_for_status()
+
+                    if target_response.status_code == 200 and origin_response.status_code == 200:
+                        suplier.balance += transaction_price
+                        buyer.balance -= transaction_price
+                        suplier.save()
+                        buyer.save()
+
+                        return Response({
+                            "status": "success",
+                            "product": product,
+                            "quantity": quantity,
+                            "buyer": buyer.name,
+                            "suplier": suplier.name,
+                            "action": "trade"
+                        }, status=status.HTTP_200_OK)                
+                    else:
+                        return Response({
+                            "status": "error",
+                            "message": "Something went wrong with the transaction!",
+                            "error_msg_origin": origin_response.raise_for_status,
+                            "error_msg_target": target_response.raise_for_status,
+                            "msg": str(e)
+                        }, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
                 return Response({
                     "status": "error",
                     "message": "Something went wrong!",
                     "error_msg": str(e)
                 }, status=status.HTTP_424_FAILED_DEPENDENCY)
-
-            if target_response.status_code == 200 and origin_response.status_code == 200:
-                return Response({
-                    "status": "success",
-                    "product": product,
-                    "quantity": quantity,
-                    "buyer": buyer.name,
-                    "suplier": suplier.name,
-                    "action": "trade"
-                }, status=status.HTTP_200_OK)
-            else:
-                return Response({
-                    "status": "error",
-                    "message": "Something went wrong with the transaction!",
-                    "error_msg_origin": origin_response.raise_for_status,
-                    "error_msg_target": target_response.raise_for_status,
-                    "msg": str(e)
-                }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({
                 "status": "error",
