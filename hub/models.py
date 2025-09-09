@@ -19,7 +19,7 @@ class CD(Base):
     slug = models.SlugField(null=True)
 
     def get_absolute_url(self):
-        return reverse("cd_detail", kwargs={"slug": self.slug})
+        return reverse("cd_detail_slug", kwargs={"slug": self.slug})
         
     def save(self, *args, **kwargs):
         if not self.slug:

@@ -3,9 +3,11 @@ from .models import CD
 
 
 class FullCDSerializer(serializers.ModelSerializer):
+    cd_url = serializers.CharField(source="get_absolute_url", read_only=True)
+
     class Meta:
         model = CD
-        fields = ['id', 'created', 'modified', 'is_active', 'last_conn', 'name', 'ip', 'description', 'region', 'balance']
+        fields = ['id', 'created', 'modified', 'is_active', 'last_conn', 'name', 'ip', 'description', 'region', 'balance', 'cd_url']
         extra_kwargs = {
             "id": {'read_only': True},
             "created": {'read_only': True},

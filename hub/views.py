@@ -8,83 +8,26 @@ from .serializers import FullCDSerializer, RequestCDSerializer
 from .models import CD
 
 
-class CdRegisterAPIView(APIView):
+class CdListCreateAPIView(generics.ListCreateAPIView):
     """
     **POST** Distribution Center **creation** objects endpoint
     - **Full serializer** with models.Base fields
     """
-    def post(self, request, *args, **kwargs):
-        serializer = FullCDSerializer(data=request.data)
+    queryset = CD.objects.filter(is_active=True)
+    serializer_class = FullCDSerializer
 
-        if serializer.is_valid():
-            cd = serializer.save()
-            return Response({
-                "status": "success",
-                "id": cd.id,
-                "created": cd.created,
-                "name": cd.name,
-                "region": cd.region,
-                "ip": cd.ip,
-                "balance": cd.balance,
-                "action": "created"
-            }, status=status.HTTP_201_CREATED)
-        else:
-            return Response({
-                "status": "error",
-                "message": "Something went wrong. Check the documentation for more info.",
-                "error_msg": serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
+    def get_queryset(self):
+        return CD.objects.all().order_by("id")
 
+class CdRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
+    queryset = CD.objects.all()
+    serializer_class = FullCDSerializer
 
-class CdPatchAPIView(APIView):
-    """
-    **PATCH** to update Distribution Centers objects fields.
-    - *OBS.: This endpoint is not meant to be public, changing permissions soon.*
-    - *WARNING: This endpoint is not meant to be public! Permissions will be aplied to this soon.*
-    """
-    def patch(self, request, *args, **kwargs):
-        slug = kwargs.get('slug')
-        cd_obj = get_object_or_404(CD, slug=slug)
-        serializer = FullCDSerializer(cd_obj, data=request.data, partial=True) 
-
-        if serializer.is_valid():
-            cd = serializer.save()
-            return Response({
-                "status": "success",
-                "id": cd.id,
-                "modified": cd.modified,
-                "name": cd.name,
-                "region": cd.region,
-                "ip": cd.ip,
-                "action": "modified"
-            }, status=status.HTTP_200_OK)
-        else:
-            return Response({
-                "status": "error",
-                "message": "Something went wrong. Check the documentation for more info."
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-
-class CdListAPIView(APIView):
-    """
-    **GET** for single **object** or **list** [CD]
-    - REQUEST accepts *identifier* or it **will bring the list of collection to response**
-    - IDENTIFIER: **slug** or **ID**
-    """
-    def get(self, request, *args, **kwargs):
-        identifier = kwargs.get('slug') or kwargs.get('pk')
-
-        if identifier:
-            if str(identifier).isdigit():
-                cd = get_object_or_404(CD, id=identifier)
-            else:
-                cd = get_object_or_404(CD, slug=identifier)
-
-            serializer = FullCDSerializer(cd)
-        else:
-            cd = CD.objects.all()
-            serializer = FullCDSerializer(cd, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def get_object(self):
+        if self.kwargs.get('id'):
+            return get_object_or_404(self.queryset, id=self.kwargs.get('id'))
+        elif self.kwargs.get('slug'):
+            return get_object_or_404(self.queryset, slug=self.kwargs.get('slug'))
 
 
 class CdRequestAPIView(APIView):
