@@ -6,8 +6,8 @@ from django.db import transaction
 
 import requests
 
-from .serializers import FullCDSerializer, RequestCDSerializer
-from .models import CD
+from .serializers import FullCDSerializer, RequestCDSerializer, TransactionSerializer
+from .models import CD, Transaction
 
 
 class CdListCreateAPIView(generics.ListCreateAPIView):
@@ -104,7 +104,7 @@ class CdRequestAPIView(APIView):
             }
 
             try:
-                with transaction.atomic():
+                with transaction.atomic(): # contendo todo o processo de concorrencia dentro da operacao
                     suplier = CD.objects.select_for_update().get(name=seller['cd'])
                     buyer = CD.objects.select_for_update().get(ip=formated_ip)
 
@@ -132,6 +132,15 @@ class CdRequestAPIView(APIView):
                         buyer.balance -= transaction_price
                         suplier.save()
                         buyer.save()
+                        
+                        # registrando a venda
+                        Transaction.objects.create(
+                            supplier=suplier,
+                            buyer=buyer,
+                            product=product,
+                            quantity=quantity,
+                            total=transaction_price
+                        )
 
                         return Response({
                             "status": "success",
@@ -160,3 +169,17 @@ class CdRequestAPIView(APIView):
                 "status": "error",
                 "error_msg": str(e),
             }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TransactionsListAPIView(generics.ListAPIView):
+    queryset = Transaction.objects.all()
+    serializer_class = TransactionSerializer
+
+    def get_queryset(self):
+        return Transaction.objects.all().order_by("id")
+
+
+class TransactionRetrieveAPIView(generics.RetrieveAPIView):
+    queryset = Transaction.objects.all()
+    serializer_class = TransactionSerializer
+    lookup_field = 'id'    
