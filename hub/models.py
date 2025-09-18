@@ -29,8 +29,8 @@ class CD(Base):
 
 class Transaction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
-    supplier = models.ManyToManyField(CD, related_name='sales') 
-    buyer = models.ManyToManyField(CD, related_name='purchases')
+    supplier = models.ForeignKey(CD, related_name='sales', on_delete=models.CASCADE) 
+    buyer = models.ForeignKey(CD, related_name='purchases', on_delete=models.CASCADE)
     product = models.CharField(max_length=100)
     quantity = models.IntegerField()
     total = models.DecimalField(decimal_places=2, max_digits=10)

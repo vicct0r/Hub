@@ -10,6 +10,7 @@ from .serializers import FullCDSerializer, RequestCDSerializer, TransactionSeria
 from .models import CD, Transaction
 
 
+
 class CdListCreateAPIView(generics.ListCreateAPIView):
     """
     **POST** Distribution Center **creation** objects endpoint
@@ -50,18 +51,16 @@ class CdRequestAPIView(APIView):
         cds = CD.objects.filter(is_active=True)
         seller = None
 
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(",")[0]
-        else:
-            ip = request.META.get("REMOTE_ADDR")
-            port = request.META.get("REMOTE_PORT")
-        
-        formated_ip = f"{ip}" if not port else f"{ip}:{port}" # a porta nao esta sendo capturada corretamente
         try:
+            x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR") # nao consegui capturar o IP:Porta, somente IP
+            if x_forwarded_for:
+                ip = x_forwarded_for.split(",")[0].strip()
+            else:
+                ip = request.META.get("REMOTE_ADDR")
+            
             for cd in cds:
-                if cd.ip == formated_ip:
-                    print('IP da API de ORIGEM: ', formated_ip)
+                if cd.ip == ip:
+                    print('IP da API de ORIGEM: ', ip)
                     continue
 
                 try:
@@ -93,7 +92,7 @@ class CdRequestAPIView(APIView):
                     "message": f"Could not find any CD with the requested amount of {product}"
                 }, status=status.HTTP_200_OK)
             
-            print("IP FORMATADO", formated_ip)
+            print("IP FORMATADO", ip)
             print("SELLER: ", seller)
 
             transaction_price = seller['price'] * quantity
@@ -106,7 +105,7 @@ class CdRequestAPIView(APIView):
             try:
                 with transaction.atomic(): # contendo todo o processo de concorrencia dentro da operacao
                     suplier = CD.objects.select_for_update().get(name=seller['cd'])
-                    buyer = CD.objects.select_for_update().get(ip=formated_ip)
+                    buyer = CD.objects.select_for_update().get(ip=ip)
 
                     target_url = f"http://{suplier.ip}/cd/v1/product/sell/"
                     origin_url = f"http://{buyer.ip}/cd/v1/product/buy/"
@@ -133,7 +132,6 @@ class CdRequestAPIView(APIView):
                         suplier.save()
                         buyer.save()
                         
-                        # registrando a venda
                         Transaction.objects.create(
                             supplier=suplier,
                             buyer=buyer,
@@ -183,3 +181,4 @@ class TransactionRetrieveAPIView(generics.RetrieveAPIView):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
     lookup_field = 'id'    
+
