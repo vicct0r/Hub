@@ -7,7 +7,7 @@ from django.db import transaction
 import requests
 
 from .serializers import FullCDSerializer, RequestCDSerializer, TransactionSerializer
-from .models import CD, Transaction
+from .models import CD, Transaction, Order
 
 
 class CdListCreateAPIView(generics.ListCreateAPIView):
@@ -59,8 +59,8 @@ class CdRequestAPIView(APIView):
         
         formated_ip = f"{ip}" if not port else f"{ip}:{port}" # a porta nao esta sendo capturada corretamente
         try:
-            for cd in cds:
-                if cd.ip == formated_ip:
+            for cd in cds: 
+                if cd.ip == formated_ip or "127.0.0.1" in cd.ip:
                     print('IP da API de ORIGEM: ', formated_ip)
                     continue
 
@@ -72,13 +72,12 @@ class CdRequestAPIView(APIView):
                 except Exception as e:
                     print(str(e))
                        
-
-                print("Payload enviado ao HUB:")
-                print("Resposta do CD:", cd_response.status_code, cd_response.text)
                 cd_response.raise_for_status()
                 data = cd_response.json()
 
                 if data['available'] != "true":
+                    print("Payload enviado ao HUB:")
+                    print("Resposta do CD:", cd_response.status_code, cd_response.text)
                     continue
 
                 if seller:
@@ -93,9 +92,8 @@ class CdRequestAPIView(APIView):
                     "message": f"Could not find any CD with the requested amount of {product}"
                 }, status=status.HTTP_200_OK)
             
-            print("IP FORMATADO", formated_ip)
+            # CD selecionado para venda 
             print("SELLER: ", seller)
-
             transaction_price = seller['price'] * quantity
 
             transaction_data = {
@@ -107,6 +105,15 @@ class CdRequestAPIView(APIView):
                 with transaction.atomic(): # contendo todo o processo de concorrencia dentro da operacao
                     suplier = CD.objects.select_for_update().get(name=seller['cd'])
                     buyer = CD.objects.select_for_update().get(ip=formated_ip)
+
+                    order = Order.objects.create(
+                        product=product,
+                        quantity=quantity,
+                        seller=suplier,
+                        client=buyer,
+                        status="pendent"
+                    )
+                    order.save()
 
                     target_url = f"http://{suplier.ip}/cd/v1/product/sell/"
                     origin_url = f"http://{buyer.ip}/cd/v1/product/buy/"
@@ -132,8 +139,7 @@ class CdRequestAPIView(APIView):
                         buyer.balance -= transaction_price
                         suplier.save()
                         buyer.save()
-                        
-                        # registrando a venda
+
                         Transaction.objects.create(
                             supplier=suplier,
                             buyer=buyer,
@@ -141,6 +147,9 @@ class CdRequestAPIView(APIView):
                             quantity=quantity,
                             total=transaction_price
                         )
+
+                        order.status = 'complete'
+                        order.save()
 
                         return Response({
                             "status": "success",
@@ -164,6 +173,7 @@ class CdRequestAPIView(APIView):
                     "message": "Something went wrong!",
                     "error_msg": str(e)
                 }, status=status.HTTP_424_FAILED_DEPENDENCY)
+            
         except Exception as e:
             return Response({
                 "status": "error",
