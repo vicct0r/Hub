@@ -48,21 +48,12 @@ class CdRequestAPIView(APIView):
 
         product = data['product']
         quantity = data['quantity']
-        cds = CD.objects.filter(is_active=True)
-        seller = None
-
+        ip = data['ip']
+        cds = CD.objects.filter(is_active=True).exclude(ip=ip)
+        seller = {}
+        
         try:
-            x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR") # nao consegui capturar o IP:Porta, somente IP
-            if x_forwarded_for:
-                ip = x_forwarded_for.split(",")[0].strip()
-            else:
-                ip = request.META.get("REMOTE_ADDR")
-            
             for cd in cds:
-                if cd.ip == ip:
-                    print('IP da API de ORIGEM: ', ip)
-                    continue
-
                 try:
                     cd_response = requests.get(
                     url = f"http://{cd.ip}/cd/v1/product/request/{product}/{quantity}/",
@@ -71,9 +62,6 @@ class CdRequestAPIView(APIView):
                 except Exception as e:
                     print(str(e))
                        
-
-                print("Payload enviado ao HUB:")
-                print("Resposta do CD:", cd_response.status_code, cd_response.text)
                 cd_response.raise_for_status()
                 data = cd_response.json()
 
@@ -91,9 +79,6 @@ class CdRequestAPIView(APIView):
                     "status": "error",
                     "message": f"Could not find any CD with the requested amount of {product}"
                 }, status=status.HTTP_200_OK)
-            
-            print("IP FORMATADO", ip)
-            print("SELLER: ", seller)
 
             transaction_price = seller['price'] * quantity
 
