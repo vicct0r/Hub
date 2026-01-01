@@ -8,8 +8,8 @@ import requests
 
 from .serializers import FullCDSerializer, RequestCDSerializer, TransactionSerializer
 from .models import CD, Transaction
-
-
+from ..cd_client import HUBClient
+from .services.Hub import HubService
 
 class CdListCreateAPIView(generics.ListCreateAPIView):
     """
@@ -58,50 +58,12 @@ class CdRequestAPIView(APIView):
             else:
                 ip = request.META.get("REMOTE_ADDR")
             
-            for cd in cds:
-                if cd.ip == ip:
-                    print('IP da API de ORIGEM: ', ip)
-                    continue
+            client = get_object_or_404(CD, ip=ip)
+            trade_response = HubService.trade_request(client=client)
 
-                try:
-                    cd_response = requests.get(
-                    url = f"http://{cd.ip}/cd/v1/product/request/{product}/{quantity}/",
-                    timeout=5
-                    )
-                except Exception as e:
-                    print(str(e))
-                       
-
-                print("Payload enviado ao HUB:")
-                print("Resposta do CD:", cd_response.status_code, cd_response.text)
-                cd_response.raise_for_status()
-                data = cd_response.json()
-
-                if data['available'] != "true":
-                    continue
-
-                if seller:
-                    if data['price'] < seller['price']:
-                        seller = {"cd": cd.name, "price": data['price'], "quantity": data['quantity']}
-                else:
-                    seller = {"cd": cd.name, "price": data['price'], "quantity": data['quantity']}
-            
-            if not seller:
-                return Response({
-                    "status": "error",
-                    "message": f"Could not find any CD with the requested amount of {product}"
-                }, status=status.HTTP_200_OK)
-            
-            print("IP FORMATADO", ip)
-            print("SELLER: ", seller)
-
-            transaction_price = seller['price'] * quantity
-
-            transaction_data = {
-                "product": product,
-                "quantity": quantity
-            }
-
+            # isso realmente faz parte de um só processo? 
+            # buscar_candidato -> selecionar_candidato -> (transacao entre cliente e fornecedor [CDs]) -> devolver_resposta
+             
             try:
                 with transaction.atomic(): # contendo todo o processo de concorrencia dentro da operacao
                     suplier = CD.objects.select_for_update().get(name=seller['cd'])
