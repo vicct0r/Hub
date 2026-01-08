@@ -7,12 +7,9 @@ class FullCDSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CD
-        fields = ['id', 'created', 'modified', 'is_active', 'last_conn', 'name', 'ip', 'description', 'region', 'balance', 'cd_url']
+        fields = ['id', 'last_conn', 'ip', 'description', 'region', 'balance', 'cd_url']
         extra_kwargs = {
             "id": {'read_only': True},
-            "created": {'read_only': True},
-            "modified": {'read_only': True},
-            "is_active": {'read_only': True},
             "last_conn": {'read_only': True},
             "balance": {'read_only': True}
         }
@@ -20,9 +17,10 @@ class FullCDSerializer(serializers.ModelSerializer):
 
 class TransactionSerializer(serializers.ModelSerializer):
     model = Transaction
-    fields = ['created_at', 'supplier', 'buyer', 'product', 'quantity', 'total']
+    fields = ['supplier', 'buyer', 'product', 'quantity', 'total']
 
 
 class RequestCDSerializer(serializers.Serializer):
     product = serializers.CharField()
     quantity = serializers.IntegerField()
+    ip = serializers.CharField()

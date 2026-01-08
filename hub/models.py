@@ -2,18 +2,15 @@ from django.db import models
 from django.urls import reverse
 
 from django.template.defaultfilters import slugify
-
-class Base(models.Model):
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
-    last_conn = models.DateTimeField(default=None, blank=True, null=True)
+import uuid
 
 
-class CD(Base):
-    name = models.CharField(max_length=90, unique=True)
+class CD(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    last_conn = models.DateTimeField(auto_now=True)
+    name = models.CharField(max_length=90, unique=True, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
-    ip = models.CharField(max_length=120)
+    ip = models.CharField(max_length=120, unique=True)
     balance = models.DecimalField(max_digits=10, decimal_places=2, editable=False, default=0)
     region = models.CharField(max_length=100, blank=True, null=True)
     slug = models.SlugField(null=True)
