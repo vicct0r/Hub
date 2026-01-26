@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import CD
 
 
-class FullCDSerializer(serializers.ModelSerializer):
+class FullClientSerializer(serializers.ModelSerializer):
     cd_url = serializers.CharField(source="get_absolute_url", read_only=True)
 
     class Meta:
