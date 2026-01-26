@@ -1,10 +1,10 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework import status, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from .models import Order
-from .serializers import OrderCreateSerializer, OrderSerializer, ClientIdentifierSerializer
+from .serializers import OrderSerializer, ClientListOrderSerializer
 from catalog.models import Product
 from hub.models import CD
 
@@ -13,8 +13,9 @@ class OrderListAPIView(APIView):
     # por enquanto, não poderá ser GET
 
     def post(self, request, *args, **kwargs):
-        serializer = ClientIdentifierSerializer(data=request.data)
-        data = serializer.validated_data(raise_exceptions=True)
+        serializer = ClientListOrderSerializer(data=request.data)
+        serializer.is_valid(raise_exceptions=True)
+        data = serializer.save()
 
         client = CD.objects.get(id=data['client_id'])
 
@@ -32,27 +33,31 @@ class OrderListAPIView(APIView):
         
 
 class OrderCreateAPIView(APIView):
-    
     def post(self, request, *args, **kwargs):
-        serializer = OrderCreateSerializer(data=request.data)
-        data = serializer.validated_data(raise_exceptions=True)
+        serializer = OrderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
 
-        product = Product.objects.get(sku=data['sku'])
+        product = get_object_or_404(Product, sku=data['sku'])
+        client = get_object_or_404(CD, id=data['client'])
+        insufficient_bath_quantity = product.quantity < data['quantity']
 
-        if product:
-            _requested_quantity = data['quantity']
+        if insufficient_bath_quantity:
 
-            if product.quantity < _requested_quantity:
-                order = Order.objects.create(
-                    client = data['client']
-                )
+            order = Order.objects.create(
+                client=client,
+                status=Order.AWAITING_CUSTOMER_DECISION,
+                product=product,
+                quantity=data['quantity'],
+                total_price=data['quantity'] * product.price
+            )
 
-                return Response({
-                    "status": "success",
-                    "message": "not enought products to fullfill the batch.",
-                    "info": "please choose the operational solution for the trade request on the order URL.",
-                    "url": order.get_absolute_url()
-                }, status=status.HTTP_201_CREATED)
+            return Response({
+                "status": "success",
+                "message": "not enought products to fullfill the batch.",
+                "info": "please choose the operational solution for the trade request on the order URL.",
+                "url": order.get_absolute_url()
+            }, status=status.HTTP_202_ACCEPTED)
 
 
 class OrderDetailView(APIView):

@@ -5,6 +5,9 @@ from django.template.defaultfilters import slugify
 import uuid
 
 class CD(models.Model):
+    created = models.DateTimeField(auto_now_add=True)
+    modified = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=90, unique=True, blank=True, null=True)
     ip = models.CharField(max_length=120, unique=True)

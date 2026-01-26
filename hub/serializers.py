@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CD, Transaction
+from .models import CD
 
 
 class FullCDSerializer(serializers.ModelSerializer):
@@ -7,20 +7,6 @@ class FullCDSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CD
-        fields = ['id', 'last_conn', 'ip', 'description', 'region', 'balance', 'cd_url']
-        extra_kwargs = {
-            "id": {'read_only': True},
-            "last_conn": {'read_only': True},
-            "balance": {'read_only': True}
-        }
+        fields = '__all__'
+        read_only_fields = ['created', 'modified', 'is_active', 'id', 'slug']
 
-
-class TransactionSerializer(serializers.ModelSerializer):
-    model = Transaction
-    fields = ['supplier', 'buyer', 'product', 'quantity', 'total']
-
-
-class RequestCDSerializer(serializers.Serializer):
-    product = serializers.CharField()
-    quantity = serializers.IntegerField()
-    ip = serializers.CharField()
