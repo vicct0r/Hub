@@ -36,28 +36,14 @@ class OrderCreateAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = OrderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
+        order = serializer.save()
 
-        product = get_object_or_404(Product, sku=data['sku'])
-        client = get_object_or_404(CD, id=data['client'])
-        insufficient_bath_quantity = product.quantity < data['quantity']
-
-        if insufficient_bath_quantity:
-
-            order = Order.objects.create(
-                client=client,
-                status=Order.AWAITING_CUSTOMER_DECISION,
-                product=product,
-                quantity=data['quantity'],
-                total_price=data['quantity'] * product.price
-            )
-
-            return Response({
-                "status": "success",
-                "message": "not enought products to fullfill the batch.",
-                "info": "please choose the operational solution for the trade request on the order URL.",
-                "url": order.get_absolute_url()
-            }, status=status.HTTP_202_ACCEPTED)
+        return Response({
+            "status": "success",
+            "order_id": order.id,
+            "order_status": order.status,
+            "order_url": order.get_absolute_url(),
+        }, status=status.HTTP_201_CREATED)
 
 
 class OrderDetailView(APIView):

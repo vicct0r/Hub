@@ -13,13 +13,17 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class OrderCreationSerializer(serializers.ModelSerializer):
+    sku = serializers.CharField(write_only=True)
+    order_url = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Order
         fields = ['sku', 'quantity', 'client']
-        
+        read_only_fields = ['id', 'sku', 'total_price', 'order_url']
+
     def create(self, validated_data):
         product = Product.objects.get(sku=validated_data['sku'])
-        client = CD.objects.get(id=client)
+        client = CD.objects.get(id=validated_data['client'])
         insufficient_batch = product.quantity < validated_data['quantity']
 
         if insufficient_batch:
@@ -31,8 +35,10 @@ class OrderCreationSerializer(serializers.ModelSerializer):
             product=product,
             quantity=validated_data['quantity'],
             total_price=validated_data['quantity'] * product.price,
-            client=client.id,
+            client=client,
             status=status
         )
     
+    def get_order_url(self, obj):
+        return obj.get_absolute_url()
     
