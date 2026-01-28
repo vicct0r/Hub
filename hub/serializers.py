@@ -8,5 +8,5 @@ class FullClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = CD
         fields = '__all__'
-        read_only_fields = ['created', 'modified', 'is_active', 'id', 'slug']
+        read_only_fields = ['created', 'modified', 'is_active', 'id', 'slug', 'cd_url']
 

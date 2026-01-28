@@ -41,4 +41,9 @@ class OrderCreationSerializer(serializers.ModelSerializer):
     
     def get_order_url(self, obj):
         return obj.get_absolute_url()
-    
+
+
+class BatchOperationalChoice(serializers.Serializer):
+    class Meta:
+        model = Order
+        fields = ['operation']

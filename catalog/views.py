@@ -11,7 +11,7 @@ class CatalogListCreateAPIView(generics.ListCreateAPIView):
     lookup_field = 'id'
 
 # acesso restrito para admin
-class CatalogRetrieveUpdateDeleteAPIView(generics.RetrieveUpdateDestroyAPIView):
+class CatalogRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CatalogSerializer
     queryset = Product.objects.all()
     lookup_field = 'id'

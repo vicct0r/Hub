@@ -1,71 +1,30 @@
 from django.shortcuts import render, get_object_or_404
-from rest_framework import status, generics
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from rest_framework import generics
 
 from .models import Order
-from .serializers import OrderSerializer, ClientListOrderSerializer
+from .serializers import OrderSerializer, OrderCreationSerializer
 from catalog.models import Product
 from hub.models import CD
 
-class OrderListAPIView(APIView):
-    # precisamos saber qual CD está pedindo pela lista de Pedidos.
-    # por enquanto, não poderá ser GET
+# restrito
+class OrderListCreateAPIView(generics.ListCreateAPIView):
+    serilizer_class = OrderCreationSerializer
+    queryset = Order.objects.all()
+    lookup_field = 'id'
 
-    def post(self, request, *args, **kwargs):
-        serializer = ClientListOrderSerializer(data=request.data)
-        serializer.is_valid(raise_exceptions=True)
-        data = serializer.save()
+# restrito
+class OrderRetrieveUpdateDeleteAPIView(generics.RetrieveUpdateDeleteAPIView):
+    serializer_class = OrderSerializer
+    queryset = Order.objects.all()
+    lookup_field = 'id'
 
-        client = CD.objects.get(id=data['client_id'])
-
-        if client:
-            client_orders = Order.objects.filter(id=data['client_id'])
-            return Response({
-                "status": "success",
-                "orders": client_orders
-            }, status=status.HTTP_200_OK)
-        else:
-            return Response({
-                "status": "error",
-                "error_msg": "client id not found."
-            }, status=status.HTTP_404_NOT_FOUND)
-        
-
-class OrderCreateAPIView(APIView):
-    def post(self, request, *args, **kwargs):
-        serializer = OrderSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        order = serializer.save()
-
-        return Response({
-            "status": "success",
-            "order_id": order.id,
-            "order_status": order.status,
-            "order_url": order.get_absolute_url(),
-        }, status=status.HTTP_201_CREATED)
+# publico
+class OrderRetrieveAPIView(generics.RetrieveAPIView):
+    serializer_class = OrderSerializer
+    queryset = Order.objects.exclude(status__in=[Order.COMPLETED, Order.REJECTED])
+    lookup_field = 'id'
 
 
-class OrderDetailView(APIView):
-
-    def get(self, request, *args, **kwargs):
-        order_id = kwargs.get('id')
-        order = Order.objects.get(id=order_id)
-
-        if not order:
-            return Response({
-                "status": "not found",
-                "message": "order does not exist.",
-            }, status=status.HTTP_404_NOT_FOUND)
-        
-        return Response({
-                "id": order.id,
-                "created_at": order.created,
-                "modified": order.modified,
-                "client": order.client,
-                "product": order.product,
-                "quantity": order.quantity,
-                "total_price": order.total_price
-            }, status=status.HTTP_200_OK)
-
-        
+# batchOperationalChoice
+# Endpoint para cliente aceitar lote com qtd atual ou esperar lote completo (será preciso fazer uso de datas)
+# Somente o dono do Pedido poderá escolher a operação
