@@ -13,7 +13,7 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
     lookup_field = 'id'
 
 # restrito
-class OrderRetrieveUpdateDeleteAPIView(generics.RetrieveUpdateDeleteAPIView):
+class OrderRetrieveUpdateDeleteAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = OrderSerializer
     queryset = Order.objects.all()
     lookup_field = 'id'
